@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+import tkinter as tk
+import time
+import signal
+from math import *
+
+
+class WalkSign(tk.Frame):
+    def __init__(self, master=None, walk_dur=5*60):
+        tk.Frame.__init__(self, master)
+        self.pack()
+        self.init_time = None
+        self.walk_dur = walk_dur
+
+        ptr_x = self.master.winfo_pointerx() - self.master.winfo_rootx()
+        ptr_y = self.master.winfo_pointery() - self.master.winfo_rooty()
+        win_w = self.master.winfo_reqwidth()
+        win_h = self.master.winfo_reqheight()
+        pos_x = int(ptr_x - win_w/2)
+        pos_y = int(ptr_y - win_h/2)
+        self.master.geometry("+{}+{}".format(pos_x, pos_y))
+        self.create_widgets()
+
+        self.after_id = self.master.after(1000, self.update_disp) # 1000ms = 1s
+
+    def create_widgets(self):
+        self.walk_btn = tk.Button(self)
+        self.walk_btn["text"] = "Start walk countdown"
+        self.walk_btn["command"] = self.start_cnt
+        self.walk_btn.pack(side="top")
+
+        self.quit_btn = tk.Button(self)
+        self.quit_btn["text"] = "Dismiss (you lazy bastard!)"
+        self.quit_btn["command"] = self.quit
+        self.quit_btn.pack(side="bottom")
+
+    def start_cnt(self):
+        self.init_time = time.time()
+        print("Started walk countdown at {}".format(time.ctime(self.init_time)))
+
+    def quit(self):
+        self.master.after_cancel(self.after_id)
+        self.master.destroy()
+
+    def update_disp(self):
+        if self.init_time is not None:
+            cur_time = time.time()
+            dur = cur_time - self.init_time
+            dur_rem = self.walk_dur - dur
+            mins = floor(dur_rem/60)
+            secs = floor(dur_rem - mins*60)
+            self.walk_btn["text"] = "{}min, {}s of walk remaining (click to reset)".format(mins, secs)
+        self.after_id = self.master.after(1000, self.update_disp) # 1000ms = 1s
+
+
+goon = True
+popup_app = None
+def sigint_handler(sig, frame):
+    global goon, popup_app
+    goon = False
+    if popup_app is not None:
+        popup_app.quit()
+
+
+def main():
+    global goon, popup_app
+    print("Initializing WTR")
+    signal.signal(signal.SIGINT, sigint_handler)
+
+    walk_period = 60*60 # one hour
+    # walk_period = 1*1 # in seconds
+    last_warntime = time.time()
+
+    sleep_dur = 1
+    print("Started WTR")
+    print("Next walk at {}".format(time.ctime(time.time() + walk_period)))
+    while goon:
+        cur_time = time.time()
+        dur = cur_time - last_warntime
+
+        if dur >= walk_period:
+            # Show the warning
+            root = tk.Tk()
+            popup_app = WalkSign(master=root)
+            popup_app.mainloop()
+            popup_app = None
+            last_warntime = time.time()
+            print("Next walk at {}".format(time.ctime(cur_time + walk_period)))
+        time.sleep(sleep_dur)
+
+    print("Ending WTR")
+
+
+if __name__ == "__main__":
+    main()
